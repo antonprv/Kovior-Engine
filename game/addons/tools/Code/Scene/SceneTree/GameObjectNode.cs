@@ -642,14 +642,7 @@ partial class GameObjectNode : TreeNode<GameObject>
 					{
 						foreach ( var go in selectedGos )
 						{
-							if ( go.IsPrefabInstanceRoot )
-							{
-								EditorUtility.Prefabs.RevertInstanceToPrefab( go );
-							}
-							else if ( go.IsPrefabInstance )
-							{
-								EditorUtility.Prefabs.RevertGameObjectInstanceChanges( go );
-							}
+							EditorUtility.Prefabs.RevertGameObjectInstanceChanges( go );
 						}
 					}
 				} ).Enabled = isModified;
