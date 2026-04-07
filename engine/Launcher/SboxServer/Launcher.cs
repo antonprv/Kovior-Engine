@@ -31,7 +31,7 @@ public class DedicatedServerAppSystem : AppSystem
 
 		var createInfo = new AppSystemCreateInfo()
 		{
-			WindowTitle = "s&box server",
+			WindowTitle = "Kovior Server",
 			Flags = AppSystemFlags.IsDedicatedServer | AppSystemFlags.IsGameApp | AppSystemFlags.IsConsoleApp
 		};
 
@@ -65,7 +65,7 @@ public class DedicatedServerAppSystem : AppSystem
 
 	void PrintHelp()
 	{
-		Log.Info( "Welcome to the s&box dedicated server. This is currently a work in progress." );
+		Log.Info( "Welcome to the Kovior dedicated server. This is currently a work in progress." );
 		Log.Info( "Submit any issues to https://github.com/facepunch/sbox-public/issues" );
 		Log.Info( "" );
 		Log.Info( "game <gameident> - load a game" );

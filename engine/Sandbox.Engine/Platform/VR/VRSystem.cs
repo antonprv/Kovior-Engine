@@ -282,7 +282,7 @@ internal static unsafe partial class VRSystem
 			useDebugMessenger = true
 		};
 
-		CopyStringToBuffer( "s&box", instanceInfo.appName, Constants.MaxAppNameSize );
+		CopyStringToBuffer( "kovior-engine", instanceInfo.appName, Constants.MaxAppNameSize );
 		var manifestPath = "core/cfg/fpxr/actions.json";
 		CopyStringToBuffer( manifestPath, instanceInfo.actionManifestPath, Constants.MaxPathSize );
 

@@ -17,7 +17,7 @@ namespace Editor
 			Singleton = this;
 			DeleteOnClose = true;
 
-			WindowTitle = "Opening s&box Editor";
+			WindowTitle = "Launching Kovior Engine";
 			SetWindowIcon( Pixmap.FromFile( "logo_rounded.png" ) );
 			BackgroundImage = LoadSplashImage();
 
@@ -163,8 +163,8 @@ namespace Editor
 
 			var projectTitle = Project.Current?.Config?.Title;
 			var title = string.IsNullOrEmpty( projectTitle )
-				? "s&box Editor"
-				: $"s&box Editor - {projectTitle}";
+				? "Kovior Engine"
+				: $"Kovior Engine - {projectTitle}";
 
 			Paint.SetPen( Color.White );
 			Paint.SetDefaultFont( 10, 600 );
@@ -178,7 +178,7 @@ namespace Editor
 			// Progress text at the bottom
 			Paint.SetPen( Color.White.WithAlpha( 0.6f ) );
 			Paint.SetDefaultFont( 8, 400 );
-			Paint.DrawText( textArea, LatestMessage ?? "Bootstrapping..", TextFlag.LeftBottom );
+			Paint.DrawText( textArea, LatestMessage ?? "Loading editor...", TextFlag.LeftBottom );
 		}
 
 	}

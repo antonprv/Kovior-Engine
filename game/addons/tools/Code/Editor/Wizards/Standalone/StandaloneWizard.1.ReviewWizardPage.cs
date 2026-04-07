@@ -123,15 +123,6 @@ partial class StandaloneWizard
 
 				BodyLayout.AddSpacingCell( 8 );
 
-				BodyLayout.Add( new InformationBox( """
-					Game exporting is in technical preview.
-					- Some things might not work
-					- Please do not distribute your exported game yet
-					- Please do not put your game on Steam yet
-					""" ) );
-
-				BodyLayout.AddSpacingCell( 2 );
-
 				if ( !Project.Config.IsStandaloneOnly )
 				{
 					BodyLayout.Add( new WarningBox( $"""

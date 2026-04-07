@@ -40,7 +40,7 @@ internal class DedicatedServerConsole
 			width = 80;
 		}
 
-		var name = string.IsNullOrEmpty( Networking.ServerName ) ? "s&box server" : Networking.ServerName;
+		var name = string.IsNullOrEmpty( Networking.ServerName ) ? "Kovior Server" : Networking.ServerName;
 		var maxPlayers = Application.GamePackage?.GetCachedMeta( "MaxPlayers", 32 ) ?? 32;
 		var topLeft = $"{name} ({Connection.All.Count}/{maxPlayers}) [{uptimeString}]";
 		var topRight = $"Network {PerformanceStats.Timings.Network.AverageMs( 1 ):0.00}ms";

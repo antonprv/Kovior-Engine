@@ -258,7 +258,7 @@ internal static class DedicatedServer
 
 		await Task.Delay( 1000 );
 
-		var gameTitle = Application.GamePackage?.Title ?? "s&box";
+		var gameTitle = Application.GamePackage?.Title ?? "kovior-engine";
 		var mapName = Application.MapPackage?.Title ?? GameNetworkSystem.CurrentSceneName ?? gameTitle;
 
 		try

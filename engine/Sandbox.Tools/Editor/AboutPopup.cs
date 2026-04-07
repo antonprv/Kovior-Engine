@@ -27,7 +27,7 @@ public class AboutWidget : BaseWindow
 
 	public AboutWidget() : base()
 	{
-		WindowTitle = "About s&box editor";
+		WindowTitle = "About Kovior Engine";
 		SetWindowIcon( "info" );
 		DeleteOnClose = true;
 
@@ -40,7 +40,7 @@ public class AboutWidget : BaseWindow
 
 		// Add header
 		var messageLabel = Layout.Add( new Label() );
-		messageLabel.Text = "s&box editor © Facepunch Studios Ltd.";
+		messageLabel.Text = "Kovior Engine © Kovior Games © Forked from Facepunch Studios Ltd.";
 		messageLabel.TextSelectable = false;
 
 		// Add version

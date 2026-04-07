@@ -21,7 +21,7 @@ public class EditorAppSystem : AppSystem
 
 		var createInfo = new AppSystemCreateInfo()
 		{
-			WindowTitle = "s&box editor",
+			WindowTitle = "Kovior Engine",
 			Flags = AppSystemFlags.IsGameApp | AppSystemFlags.IsEditor
 		};
 

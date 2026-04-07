@@ -111,7 +111,7 @@ public class EditorMainWindow : DockWindow
 		Current = this;
 		Visible = false;
 		Enabled = false;
-		WindowTitle = "s&box editor";
+		WindowTitle = "Kovior Engine Editor";
 		DeleteOnClose = true;
 		FullScreenManager = new();
 		DockManager.OnLayoutLoaded += OnDockLayoutLoaded;
@@ -188,7 +188,7 @@ public class EditorMainWindow : DockWindow
 			help.AddOption( "Report a Bug", "bug_report", () => EditorUtility.OpenFolder( "https://github.com/Facepunch/sbox-public/issues" ) );
 
 			help.AddSeparator();
-			help.AddOption( "About s&box editor", "info", () =>
+			help.AddOption( "About Kovior Engine", "info", () =>
 			{
 				var aboutWidget = new AboutWidget();
 				aboutWidget.SetModal( true, true );
@@ -507,7 +507,7 @@ public class EditorMainWindow : DockWindow
 
 	public void UpdateEditorTitle( string title )
 	{
-		Title = $"{title} - s&box editor{(Global.IsApiConnected ? "" : " - offline")}";
+		Title = $"{title} - Kovior Editor{(Global.IsApiConnected ? "" : " - offline")}";
 	}
 
 	void BuildRecentScenes()

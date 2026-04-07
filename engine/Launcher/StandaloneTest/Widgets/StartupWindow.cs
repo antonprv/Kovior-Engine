@@ -20,7 +20,7 @@ public partial class StartupWindow : Window
 		HasMaximizeButton = false;
 		Visible = false;
 
-		WindowTitle = "Welcome to the s&box editor";
+		WindowTitle = "Welcome to the Kovior Engine!";
 
 		SetWindowIcon( Pixmap.FromFile( "logo_rounded.png" ) );
 

@@ -22,6 +22,7 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo( "sbox-launcher" )]
 [assembly: InternalsVisibleTo( "sbox-server" )]
 [assembly: InternalsVisibleTo( "sbox-dev" )]
+[assembly: InternalsVisibleTo( "kovior-engine" )]
 [assembly: InternalsVisibleTo( "sbox" )]
 [assembly: InternalsVisibleTo( "sbox-standalone" )]
 [assembly: InternalsVisibleTo( "sbox-profiler" )]

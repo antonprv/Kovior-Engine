@@ -60,7 +60,7 @@ public class ProjectCreator : Dialog
 			body.AddSpacingCell( 12.0f );
 
 			body.Add( new FieldTitle( "Title" ) );
-			TitleEdit = body.Add( new LineEdit( "" ) { PlaceholderText = "Garry's Project" } );
+			TitleEdit = body.Add( new LineEdit( "" ) { PlaceholderText = "Kovior Project" } );
 			TitleEdit.Text = DefaultProjectName();
 			TitleEdit.TextEdited += ( x ) => Validate();
 
@@ -68,7 +68,7 @@ public class ProjectCreator : Dialog
 
 			body.Add( new FieldTitle( "Ident" ) );
 			body.Add( new FieldSubtitle( "Lowercase version of addon name, no special characters" ) );
-			IdentEdit = body.Add( new LineEdit( "" ) { PlaceholderText = "garrysproject" } );
+			IdentEdit = body.Add( new LineEdit( "" ) { PlaceholderText = "kovior_addon" } );
 			IdentEdit.TextEdited += ( x ) => Validate();
 			IdentEdit.TextEdited += ( x ) => identEdited = true;
 			IdentEdit.SetValidator( "[a-z0-9_]{2,32}" );
