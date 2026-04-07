@@ -46,6 +46,7 @@ public partial class SceneNetworkSystem : GameNetworkSystem
 		AddHandler<SceneRpcMsg>( OnSceneRpc );
 		AddHandler<StaticRpcMsg>( OnStaticRpc );
 		AddHandler<LoadSceneBeginMsg>( OnLoadSceneMsg );
+		AddHandler<LoadSceneNotifyMsg>( OnLoadSceneNotifyMsg );
 		AddHandler<LoadSceneSnapshotMsg>( OnLoadSceneSnapshotMsg );
 		AddHandler<LoadSceneRequestSnapshotMsg>( OnLoadSceneRequestSnapshotMsg );
 		AddHandler<SceneLoadedMsg>( OnSceneLoadedMsg );
@@ -83,6 +84,35 @@ public partial class SceneNetworkSystem : GameNetworkSystem
 	}
 
 	private readonly Dictionary<Guid, Guid> PendingSceneLoads = new();
+
+	/// <summary>
+	/// Notify all connected clients that the host is loading a new scene.
+	/// Sent before <see cref="LoadSceneBroadcast"/> so clients can show a loading screen immediately rather than freezing with no feedback.
+	/// </summary>
+	internal void NotifySceneChangeStarting( SceneLoadOptions options )
+	{
+		if ( !Networking.IsActive || !Networking.IsHost )
+			return;
+
+		var msg = new LoadSceneNotifyMsg { ShowLoadingScreen = options.ShowLoadingScreen };
+
+		var bs = ByteStream.Create( 64 );
+		bs.Write( InternalMessageType.Packed );
+		Networking.System.Serialize( msg, ref bs );
+
+		foreach ( var c in Connection.All )
+		{
+			if ( c == Connection.Local )
+				continue;
+
+			if ( c.State < Connection.ChannelState.Snapshot )
+				continue;
+
+			c.SendStream( bs );
+		}
+
+		bs.Dispose();
+	}
 
 	/// <summary>
 	/// Load a scene for all other clients. This can only be called by the host.
@@ -300,6 +330,21 @@ public partial class SceneNetworkSystem : GameNetworkSystem
 		connection.SendStream( bs );
 
 		bs.Dispose();
+	}
+
+	/// <summary>
+	/// Called when the host notifies us it is about to begin loading a new scene.
+	/// </summary>
+	private void OnLoadSceneNotifyMsg( LoadSceneNotifyMsg msg, Connection connection, Guid msgId )
+	{
+		if ( Game.IsEditor )
+			return;
+
+		if ( msg.ShowLoadingScreen )
+		{
+			LoadingScreen.IsVisible = true;
+			LoadingScreen.Title = "Loading Scene";
+		}
 	}
 
 	/// <summary>
@@ -1373,6 +1418,12 @@ struct ObjectRefreshMsg
 	public byte[] Snapshot { get; set; }
 	public Guid Parent { get; set; }
 	public Guid Guid { get; set; }
+}
+
+[Expose]
+struct LoadSceneNotifyMsg
+{
+	public bool ShowLoadingScreen { get; set; }
 }
 
 [Expose]

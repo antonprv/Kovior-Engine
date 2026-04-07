@@ -35,6 +35,10 @@ public static partial class Game
 		if ( !Networking.IsHost )
 			return false;
 
+		// Tell clients the host is about to load a new scene before we start,
+		// so we show a loading screen immediately rather than freezing silently.
+		SceneNetworkSystem.Instance?.NotifySceneChangeStarting( options );
+
 		// We don't want to send any networked messages to do with deletion or creation
 		// of GameObjects here. Because the client will destroy their scene locally
 		// anyway. This saves us sending a message for potentially 100s of objects.
