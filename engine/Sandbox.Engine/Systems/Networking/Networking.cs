@@ -371,6 +371,8 @@ public static partial class Networking
 
 	internal static void PreFrameTick()
 	{
+		s_threadTickRate = (int)ProjectSettings.Networking.UpdateRate.Clamp( 1, 500 );
+
 		UpdateFakeLag();
 
 		try
