@@ -418,4 +418,63 @@ public sealed class RecorderTests : SceneTests
 		CollectionAssert.Contains( colors, Color.Red );
 		CollectionAssert.Contains( colors, Color.Blue );
 	}
+
+	[TestMethod]
+	public void RecordRingBuffer()
+	{
+		var go = new GameObject( "Example" );
+
+		var options = new MovieRecorderOptions( BufferDuration: 10.0 )
+			.WithCaptureAction( x => x.GetTrackRecorder( go )!.Capture() );
+
+		var clip = Record( options, 60.0, t =>
+		{
+			go.WorldPosition = Vector3.Forward * (float)t.TotalSeconds * 10f;
+		} );
+
+		Console.WriteLine( Json.Serialize( clip ) );
+
+		Assert.AreEqual( options.BufferDuration!.Value, clip.Duration );
+
+		var positionTrack = clip.GetProperty<Vector3>( go.Name, nameof( GameObject.LocalPosition ) );
+
+		Assert.IsNotNull( positionTrack );
+		Assert.AreEqual( (0.0, 10.0), positionTrack.Blocks[0].TimeRange );
+	}
+
+	[TestMethod]
+	public void RecordRingBufferDropEmptyTracks()
+	{
+		var go1 = new GameObject( "Example 1" );
+		var go2 = new GameObject( "Example 2" );
+
+		var options = new MovieRecorderOptions( BufferDuration: 10.0 )
+			.WithCaptureAction( x =>
+			{
+				x.GetTrackRecorder( go1 )?.Capture();
+				x.GetTrackRecorder( go2 )?.Capture();
+			} );
+
+		var clip = Record( options, 60.0, t =>
+		{
+			if ( t >= 30.0 )
+			{
+				go1?.Destroy();
+				go1 = null;
+			}
+
+			go1?.WorldPosition = Vector3.Forward * (float)t.TotalSeconds * 10f;
+			go2.WorldPosition = Vector3.Up * (float)t.TotalSeconds * 10f;
+		} );
+
+		Console.WriteLine( Json.Serialize( clip ) );
+
+		Assert.AreEqual( options.BufferDuration!.Value, clip.Duration );
+
+		// Example 1 stopped existing before the recorded time range started,
+		// so the recording shouldn't include it at all
+
+		Assert.IsNull( clip.GetReference<GameObject>( "Example 1" ) );
+		Assert.IsNotNull( clip.GetReference<GameObject>( "Example 2" ) );
+	}
 }

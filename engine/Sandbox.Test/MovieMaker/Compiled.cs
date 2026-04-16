@@ -241,4 +241,62 @@ public sealed class CompiledTests
 		Assert.ThrowsException<ArgumentException>( () => track.WithConstant( (1d, 3d), default ),
 			"Overlapping blocks" );
 	}
+
+	/// <summary>
+	/// Re-use the same <see cref="CompiledSampleBlock{T}"/> instance if no reduction needed.
+	/// </summary>
+	[TestMethod]
+	public void ReduceSamplesSameInstance()
+	{
+		var sampleBlock = new CompiledSampleBlock<int>( (0.0, 2.0), 0.0, 1, [0, 1, 2] );
+
+		Assert.AreSame( sampleBlock, sampleBlock.Reduce() );
+	}
+
+	/// <summary>
+	/// Reduce a <see cref="CompiledSampleBlock{T}"/> in a way that's aligned to the sample rate.
+	/// </summary>
+	[TestMethod]
+	public void ReduceSamplesAligned()
+	{
+		var sampleBlock = new CompiledSampleBlock<int>( (0.0, 2.0), 1.0, 1, [0, 1, 2, 3, 4] );
+
+		Assert.IsInstanceOfType( sampleBlock.Reduce(), out CompiledSampleBlock<int> reduced );
+
+		Assert.AreEqual( (0.0, 2.0), reduced.TimeRange );
+		Assert.AreEqual( 0.0, reduced.Offset );
+
+		Assert.IsTrue( reduced.Samples.SequenceEqual( [1, 2, 3] ) );
+	}
+
+	/// <summary>
+	/// Reduce a <see cref="CompiledSampleBlock{T}"/> in a way that's not aligned to the sample rate.
+	/// </summary>
+	[TestMethod]
+	public void ReduceSamplesUnaligned()
+	{
+		var sampleBlock = new CompiledSampleBlock<int>( (0.0, 2.0), 1.5, 1, [0, 1, 2, 3, 4] );
+
+		Assert.IsInstanceOfType( sampleBlock.Reduce(), out CompiledSampleBlock<int> reduced );
+
+		Assert.AreEqual( (0.0, 2.0), reduced.TimeRange );
+		Assert.AreEqual( 0.5, reduced.Offset );
+
+		Assert.IsTrue( reduced.Samples.SequenceEqual( [1, 2, 3, 4] ) );
+	}
+
+	/// <summary>
+	/// Turn a <see cref="CompiledSampleBlock{T}"/> into a <see cref="CompiledConstantBlock{T}"/> if we reduce down
+	/// to a single sample.
+	/// </summary>
+	[TestMethod]
+	public void ReduceSamplesIntoConstant()
+	{
+		var sampleBlock = new CompiledSampleBlock<int>( (0.0, 1.0), -1.0, 1, [1, 2] );
+
+		Assert.IsInstanceOfType( sampleBlock.Reduce(), out CompiledConstantBlock<int> reduced );
+
+		Assert.AreEqual( (0.0, 1.0), reduced.TimeRange );
+		Assert.AreEqual( 1, reduced.GetValue( 0.0 ) );
+	}
 }

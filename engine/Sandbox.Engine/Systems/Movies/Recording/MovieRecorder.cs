@@ -16,7 +16,7 @@ namespace Sandbox.MovieMaker;
 /// to tracks. Alternatively, call <see cref="Start"/> to automatically advance and capture every fixed update, and <see cref="Stop"/> to finish recording.
 /// </para>
 /// <para>
-/// Convert the recording to a <see cref="MovieClip"/> by calling <see cref="ToClip"/>. This clip can then be
+/// Convert the recording to a <see cref="MovieClip"/> by calling <see cref="ToClip()"/>. This clip can then be
 /// played back immediately, or serialized to later use.
 /// </para>
 /// </summary>
@@ -44,7 +44,9 @@ public sealed partial class MovieRecorder
 	/// <summary>
 	/// Recorded time range, spanning from the first capture to the current value of <see cref="Time"/>.
 	/// </summary>
-	public MovieTimeRange TimeRange => (_firstCaptureTime ?? default, Time);
+	public MovieTimeRange TimeRange => Options.BufferDuration is { } duration
+		? (MovieTime.Max( _firstCaptureTime ?? default, Time - duration ), Time)
+		: (_firstCaptureTime ?? default, Time);
 
 	private List<MovieGameObjectTrackRecorder> RootTrackRecorders { get; } = new();
 
@@ -309,7 +311,19 @@ public sealed partial class MovieRecorder
 	/// <summary>
 	/// Convert the current recording to a <see cref="MovieClip"/> that can be serialized or played back.
 	/// </summary>
-	public MovieClip ToClip() => MovieClip.FromTracks( RootTrackRecorders.SelectMany( x => x.Compile() ) );
+	public MovieClip ToClip()
+	{
+		var startTime = Options.BufferDuration is { } duration
+			? MovieTime.Max( MovieTime.Zero, Time - duration )
+			: MovieTime.Zero;
+
+		return ToClip( (startTime, Time) );
+	}
+
+	public MovieClip ToClip( MovieTimeRange timeRange )
+	{
+		return MovieClip.FromTracks( RootTrackRecorders.SelectMany( x => x.Compile( timeRange ) ) );
+	}
 
 	/// <summary>
 	/// Convert the current recording to a <see cref="IMovieResource"/> that can be saved as a .movie asset.

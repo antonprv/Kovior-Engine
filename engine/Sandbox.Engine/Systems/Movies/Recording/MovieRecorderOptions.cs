@@ -31,7 +31,13 @@ public sealed class DefaultMovieRecorderOptionsAttribute : Attribute;
 /// should be recorded.
 /// </summary>
 /// <param name="SampleRate">How often to capture the value of recorded properties.</param>
-public sealed record MovieRecorderOptions( int SampleRate = MovieRecorderOptions.DefaultSampleRate )
+/// <param name="BufferDuration">
+/// Keep only the most recent samples in memory, with this duration. If <see langword="null"/>,
+/// samples won't be discarded and the recording will keep growing in size until stopped.
+/// </param>
+public sealed record MovieRecorderOptions(
+	int SampleRate = MovieRecorderOptions.DefaultSampleRate,
+	MovieTime? BufferDuration = null )
 {
 	/// <summary>
 	/// Default value for <see cref="SampleRate"/>.
