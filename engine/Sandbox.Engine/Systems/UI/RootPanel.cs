@@ -226,13 +226,13 @@ public partial class RootPanel : Panel
 	/// </summary>
 	internal void BuildDescriptors( float opacity = 1.0f )
 	{
-		var renderer = GlobalContext.Current.UISystem.Renderer.Value;
+		var renderer = GlobalContext.Current.UISystem.Renderer;
 		renderer.BuildDescriptors( this, opacity );
 	}
 
 	internal void BuildCommandList( float opacity = 1.0f )
 	{
-		var renderer = GlobalContext.Current.UISystem.Renderer.Value;
+		var renderer = GlobalContext.Current.UISystem.Renderer;
 		renderer.BuildCommandList( this, opacity );
 	}
 

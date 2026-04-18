@@ -1,5 +1,5 @@
 ﻿using NativeEngine;
-using Sandbox.Internal;
+using Sandbox.Engine;
 using Steamworks;
 using Steamworks.Data;
 using System.Runtime.CompilerServices;
@@ -24,9 +24,7 @@ internal static partial class SteamNetwork
 				return true;
 			}
 
-			IMenuSystem.ShowServerError( "Disconnected", "Invalid Authentication Ticket" );
-			Log.Warning( "Disconnecting - Invalid Authentication Ticket" );
-
+			IGameInstanceDll.Current.Disconnect( "Invalid Authentication Ticket" );
 			return false;
 		}
 

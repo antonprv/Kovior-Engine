@@ -164,7 +164,6 @@ public static partial class MenuUtility
 	public static void CancelLoading()
 	{
 		IGameInstanceDll.Current.Disconnect();
-		LoadingScreen.IsVisible = false;
 	}
 
 	/// <summary>

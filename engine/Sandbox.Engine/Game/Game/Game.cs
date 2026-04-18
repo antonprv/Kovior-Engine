@@ -160,10 +160,15 @@ public static partial class Game
 
 		LaunchArguments.Reset();
 
-		// Standalone mode and Dedicated Server only: exit whole app
 		if ( Application.IsStandalone || Application.IsDedicatedServer )
 		{
+			// exit whole app
 			Application.Exit();
+		}
+		else
+		{
+			// return to menu
+			IMenuDll.Current?.OnGameExited();
 		}
 	}
 

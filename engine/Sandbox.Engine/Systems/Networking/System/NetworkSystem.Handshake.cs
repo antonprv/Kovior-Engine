@@ -52,7 +52,6 @@ internal partial class NetworkSystem
 
 		if ( !source.OnReceiveServerInfo( ref output, msg ) )
 		{
-			IGameInstanceDll.Current.Disconnect();
 			return;
 		}
 
@@ -66,7 +65,7 @@ internal partial class NetworkSystem
 		// This is a bit of a mess, it needs a good cleaning up. If they have a menu package, then load it first.
 		if ( !string.IsNullOrEmpty( msg.GamePackage ) )
 		{
-			UpdateLoading( $"Loading {msg.GamePackage}" );
+			LoadingScreen.Title = $"Loading {msg.GamePackage}";
 
 			log.Trace( $"Loading menu package.. {msg.GamePackage}" );
 
@@ -106,7 +105,7 @@ internal partial class NetworkSystem
 		//
 		// Tell me what I need
 		//
-		UpdateLoading( $"Fetching Server Data" );
+		LoadingScreen.Title = "Fetching Server Data";
 
 		source.SendMessage( output with
 		{
@@ -244,14 +243,12 @@ internal partial class NetworkSystem
 
 		Connection.Local.State = Connection.ChannelState.Welcome;
 
-		log.Trace( $"Welcome!" );
+		log.Trace( "Welcome!" );
 
-		UpdateLoading( $"Loading Network Tables" );
-
+		LoadingScreen.Title = "Loading Network Tables";
 		await IGameInstanceDll.Current?.LoadNetworkTables( this );
 
-		UpdateLoading( $"Init Game System" );
-
+		LoadingScreen.Title = "Init Game System";
 		InitializeGameSystem();
 
 		log.Trace( $"Game Network System: {GameSystem}" );
@@ -260,7 +257,7 @@ internal partial class NetworkSystem
 		// Here would be a goodish place to send a bunch of CRC's of the loaded state, so
 		// the server can compare and reject if we're loading assemblies wrong (cheater)
 		//
-		UpdateLoading( "Fetching Snapshot" );
+		LoadingScreen.Title = "Fetching Snapshot";
 
 		var output = new RequestMountedVPKs { HandshakeId = msg.HandshakeId };
 		source.SendMessage( output );
@@ -378,7 +375,7 @@ internal partial class NetworkSystem
 
 		Connection.Local.State = Connection.ChannelState.Snapshot;
 
-		UpdateLoading( "Loading Snapshot" );
+		LoadingScreen.Title = "Loading Snapshot";
 		Log.Trace( $"[{this}] Got a snapshot" );
 
 		//
@@ -394,10 +391,8 @@ internal partial class NetworkSystem
 			}
 			catch ( Exception e )
 			{
-				IGameInstanceDll.Current.Disconnect();
-				IMenuSystem.ShowServerError( "Disconnected", "Error Deserializing Snapshot" );
 				Log.Error( e );
-
+				IGameInstanceDll.Current.Disconnect( "Error Deserializing Snapshot" );
 				return;
 			}
 		}
@@ -464,10 +459,7 @@ internal partial class NetworkSystem
 			return Task.CompletedTask;
 		}
 
-		IGameInstanceDll.Current.Disconnect();
-		IMenuSystem.ShowServerError( "Disconnected", msg.Reason );
-		Log.Warning( $"Disconnecting - {msg.Reason}" );
-
+		IGameInstanceDll.Current.Disconnect( $"Kicked from server.\n\nReason: {msg.Reason}" );
 		return Task.CompletedTask;
 	}
 

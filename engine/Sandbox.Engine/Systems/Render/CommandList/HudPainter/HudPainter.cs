@@ -179,11 +179,12 @@ public readonly ref struct HudPainter
 	/// <param name="corners">Optional corner flags for line end caps.</param>
 	public void DrawLine( Vector2 a, Vector2 b, float width, Color color, Vector4 corners = default )
 	{
+		Color c = color.ToLinear();
 		list.Attributes.Set( "LineStart", a );
 		list.Attributes.Set( "LineEnd", b );
 		list.Attributes.Set( "LineThickness", width );
-		list.Attributes.Set( "ColorStart", color );
-		list.Attributes.Set( "ColorEnd", color );
+		list.Attributes.Set( "ColorStart", c );
+		list.Attributes.Set( "ColorEnd", c );
 		list.Attributes.Set( "EndCaps", 0 ); // flags 1 2  - use corners
 		list.Attributes.Set( "TransformMat", Matrix.Identity );
 

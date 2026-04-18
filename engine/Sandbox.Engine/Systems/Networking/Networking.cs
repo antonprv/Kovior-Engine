@@ -1,4 +1,5 @@
-﻿using Sandbox.Network;
+﻿using Sandbox.Engine;
+using Sandbox.Network;
 using Sandbox.Utility;
 using Sentry;
 using Steamworks;
@@ -431,7 +432,7 @@ public static partial class Networking
 	/// </summary>
 	internal static LobbyPrivacy EditorLobbyPrivacy { get; set; } = LobbyPrivacy.Private;
 
-	private static CancellationTokenSource createLobbyCts;
+	private static CancellationTokenSource lobbyCts;
 
 	/// <summary>
 	/// Will create a new lobby with the specified <see cref="LobbyConfig"/> to
@@ -454,8 +455,8 @@ public static partial class Networking
 		if ( IsActive )
 			return;
 
-		createLobbyCts?.Cancel();
-		createLobbyCts = new();
+		lobbyCts?.Cancel();
+		lobbyCts = new();
 
 		//
 		// Did the menu want to override the lobby's max players?
@@ -481,7 +482,7 @@ public static partial class Networking
 			config.Privacy = LaunchArguments.Privacy;
 		}
 
-		_ = CreateLobbyAsync( config, createLobbyCts );
+		_ = CreateLobbyAsync( config, lobbyCts.Token );
 	}
 
 	/// <summary>
@@ -498,7 +499,7 @@ public static partial class Networking
 		CreateLobby( config );
 	}
 
-	static async Task<bool> CreateDedicatedServer( LobbyConfig config, CancellationTokenSource cts = null )
+	static async Task<bool> CreateDedicatedServer( LobbyConfig config, CancellationToken token = default )
 	{
 		var success = await DedicatedServer.Start( config );
 		if ( !success ) return false;
@@ -516,11 +517,11 @@ public static partial class Networking
 			net.AddSocket( DedicatedServer.IpSocket );
 			net.AddSocket( DedicatedServer.IdSocket );
 
-			return !(cts?.IsCancellationRequested ?? false);
+			return !token.IsCancellationRequested;
 		}
 	}
 
-	static async Task<bool> CreateLobbyAsync( LobbyConfig config, CancellationTokenSource cts = null )
+	static async Task<bool> CreateLobbyAsync( LobbyConfig config, CancellationToken token = default )
 	{
 		if ( IsActive )
 			return false;
@@ -532,7 +533,7 @@ public static partial class Networking
 
 		if ( Application.IsDedicatedServer )
 		{
-			return await CreateDedicatedServer( config, cts );
+			return await CreateDedicatedServer( config, token );
 		}
 
 		var net = new NetworkSystem( "lobbyhost", Engine.IGameInstanceDll.Current.TypeLibrary )
@@ -551,20 +552,20 @@ public static partial class Networking
 			await Engine.IToolsDll.Current.OnInitializeHost();
 		}
 
-		if ( cts?.IsCancellationRequested ?? false )
+		if ( token.IsCancellationRequested )
 			return false;
 
 		var socket = await SteamLobbySocket.Create( config );
 		if ( socket is null )
 		{
-			if ( cts?.IsCancellationRequested ?? false )
+			if ( token.IsCancellationRequested )
 				return false;
 
 			Disconnect();
 			return false;
 		}
 
-		if ( cts?.IsCancellationRequested ?? false )
+		if ( token.IsCancellationRequested )
 			return false;
 
 		net.AddSocket( socket );
@@ -585,6 +586,9 @@ public static partial class Networking
 	/// </summary>
 	public static void Disconnect()
 	{
+		lobbyCts?.Cancel();
+		lobbyCts = null;
+
 		if ( System is null ) return;
 
 		lock ( NetworkThreadLock )
@@ -596,9 +600,6 @@ public static partial class Networking
 
 			System.Disconnect();
 			System = null;
-
-			createLobbyCts?.Cancel();
-			createLobbyCts = null;
 
 			DedicatedServer.Hide();
 		}
@@ -625,57 +626,61 @@ public static partial class Networking
 	/// </summary>
 	public static void Connect( string target )
 	{
-		Disconnect();
 		_ = TryConnect( target );
 	}
 
-	internal static async Task<bool> TryConnect( string target, int retries = 30 )
+	static async Task<bool> TryConnect( string target, int retries = 30 )
 	{
+		Disconnect();
+
 		if ( string.IsNullOrWhiteSpace( target ) )
 		{
 			Log.Warning( "Couldn't connect - target is null!" );
 			return false;
 		}
 
-		SentrySdk.AddBreadcrumb( $"Connect to '{target}'", "network.connect" );
-		Assert.IsNull( System );
-
 		//
 		// SteamID
 		//
 		if ( ulong.TryParse( target, out var steamId ) )
 		{
-			return await TryConnectSteamId( steamId );
+			return await TryConnectSteamId( steamId, retries );
 		}
 
-		var count = 0;
+		SentrySdk.AddBreadcrumb( $"Connect to '{target}'", "network.connect" );
+		Assert.IsNull( System );
 
+		LoadingScreen.IsVisible = true;
+		LoadingScreen.Media = null;
+		LoadingScreen.Title = "Connecting";
+
+		var count = 0;
 		while ( count < retries )
 		{
 			lock ( NetworkThreadLock )
 			{
 				if ( target == "local" )
 				{
-					Assert.NotNull( Engine.IGameInstanceDll.Current );
-					Assert.NotNull( Engine.IGameInstanceDll.Current.TypeLibrary );
-
 					Log.Info( $"Connecting to local client.." );
 
-					System = new( "localclient", Engine.IGameInstanceDll.Current.TypeLibrary );
+					System = new( "localclient", IGameInstanceDll.Current.TypeLibrary );
 					System.Connect( new TcpChannel( "127.0.0.1", 55333 ) );
-					System.UpdateLoading( "Connecting" );
-
-					LastConnectionString = target;
 				}
 				else
 				{
-					Log.Info( $"Connecting to {target}.." );
-					System = new( "client", Engine.IGameInstanceDll.Current.TypeLibrary );
-					System.Connect( new SteamNetwork.IpConnection( target ) );
-					System.UpdateLoading( "Connecting" );
+					// replace localhost
+					target = target.Replace( "localhost", "127.0.0.1", StringComparison.OrdinalIgnoreCase );
 
-					LastConnectionString = target;
+					// append port if needed
+					if ( !target.Contains( ':' ) )
+						target = $"{target}:{Port}";
+
+					Log.Info( $"Connecting to {target}.." );
+					System = new( "client", IGameInstanceDll.Current.TypeLibrary );
+					System.Connect( new SteamNetwork.IpConnection( target ) );
 				}
+
+				LastConnectionString = target;
 			}
 
 			var success = await AwaitSuccessfulConnection();
@@ -684,12 +689,13 @@ public static partial class Networking
 			if ( System is null )
 				return false;
 
-			Log.Info( $"Couldn't connect, trying again ({count} out of {retries})" );
+			Log.Info( $"Couldn't connect, retrying ({count}/{retries})" );
 			count++;
 
 			Disconnect();
 		}
 
+		IGameInstanceDll.Current.Disconnect( $"Connection failed after {retries} retries." );
 		return false;
 	}
 
@@ -709,60 +715,106 @@ public static partial class Networking
 		return false;
 	}
 
-	/// <summary>
-	/// Will try to connect to a server. Will return false if failed to connect.
-	/// </summary>
-	public static async Task<bool> TryConnectSteamId( SteamId steamId )
+	public static async Task<bool> TryConnectSteamId( SteamId steamId, int retries = 30 )
 	{
 		Disconnect();
+
+		SentrySdk.AddBreadcrumb( $"Connect to '{steamId}'", "network.connect" );
+		Assert.IsNull( System );
+
+		LoadingScreen.IsVisible = true;
+		LoadingScreen.Media = null;
+		LoadingScreen.Title = "Connecting";
+
+		LastConnectionString = steamId.ToString();
 
 		if ( steamId.AccountType == SteamId.AccountTypes.Lobby )
 		{
-			return await JoinSteamLobbyServer( steamId );
+			lobbyCts?.Cancel();
+			lobbyCts = new();
+
+			return await JoinSteamLobbyServer( steamId, retries, lobbyCts.Token );
 		}
 
-		// Don't load no weird maps
-		LaunchArguments.Reset();
-
-		lock ( NetworkThreadLock )
+		var count = 0;
+		while ( count < retries )
 		{
-			System = new( "steamclient", Engine.IGameInstanceDll.Current.TypeLibrary );
-			System.Connect( new SteamNetwork.IdConnection( steamId, 77 ) );
-			System.UpdateLoading( "Connecting" );
+			Log.Info( $"Connecting to {steamId}.." );
+			lock ( NetworkThreadLock )
+			{
+				System = new( "steamclient", IGameInstanceDll.Current.TypeLibrary );
+				System.Connect( new SteamNetwork.IdConnection( steamId, 77 ) );
+			}
+
+			var success = await AwaitSuccessfulConnection();
+			if ( success ) return true;
+
+			if ( System is null )
+				return false;
+
+			Log.Info( $"Couldn't connect, retrying ({count}/{retries})" );
+			count++;
+
+			Disconnect();
 		}
 
-		LastConnectionString = $"{steamId}";
-
-		var success = await AwaitSuccessfulConnection();
-		if ( success ) return true;
-
-		Disconnect();
+		IGameInstanceDll.Current.Disconnect( $"Connection failed after {retries} retries." );
 		return false;
 	}
 
-	static async Task<bool> JoinSteamLobbyServer( ulong steamid )
+	static async Task<bool> JoinSteamLobbyServer( ulong steamid, int retries, CancellationToken token = default )
 	{
-		LoadingScreen.IsVisible = true;
-		LoadingScreen.Title = "Connecting";
+		SteamLobbySocket lobbySocket = null;
 
-		var lobbySocket = await SteamLobbySocket.Join( steamid );
+		// attempt to join the lobby, allowing for the possibility that the lobby doesn't exist yet because the host is still setting up.
+		// in future when lobbies persist thru map changes etc, we should be able to remove this retry logic and just attempt to join once.
+		var count = 0;
+		while ( count < retries )
+		{
+			var result = await SteamLobbySocket.Join( steamid );
+
+			if ( token.IsCancellationRequested )
+				return false;
+
+			if ( result.Response == RoomEnter.Success )
+			{
+				// ok!
+				lobbySocket = result.Socket;
+				break;
+			}
+
+			if ( result.Response != RoomEnter.DoesntExist )
+			{
+				// the lobby exists, but we failed to join for some reason. no point in retrying.
+				IGameInstanceDll.Current.Disconnect( $"Failed to join lobby: {result.Response}" );
+				return false;
+			}
+
+			Log.Info( $"Couldn't join lobby ({result.Response}), retrying ({count}/{retries})" );
+			count++;
+
+			// the lobby doesn't exist, it might be because the host is still setting up.
+			// let's wait a bit and retry.
+
+			await Task.Delay( 2000 );
+
+			if ( token.IsCancellationRequested )
+				return false;
+		}
+
 		if ( lobbySocket is null )
 		{
-			LoadingScreen.IsVisible = false;
-
-			// Try another one?
+			IGameInstanceDll.Current.Disconnect( $"Joining lobby failed after {retries} retries." );
 			return false;
 		}
 
 		Log.Trace( $"Joined Lobby {steamid}" );
-		LoadingScreen.Title = "Connected";
+		LoadingScreen.Title = "Joined lobby";
 
 		if ( System is not null )
 		{
-			LoadingScreen.IsVisible = false;
 			Log.Warning( "Network is already active - leaving lobby" );
 			lobbySocket?.Dispose();
-
 			return false;
 		}
 
@@ -772,17 +824,41 @@ public static partial class Networking
 		// This lobby should tell us what to do
 		lock ( NetworkThreadLock )
 		{
-			System = new( "lobbyclient", Engine.IGameInstanceDll.Current.TypeLibrary );
+			System = new( "lobbyclient", IGameInstanceDll.Current.TypeLibrary );
 			System.AddSocket( lobbySocket );
-
-			LastConnectionString = $"{steamid}";
 		}
 
 		var success = await AwaitSuccessfulConnection();
 		if ( success ) return true;
 
-		LoadingScreen.IsVisible = false;
 		Disconnect();
+		IGameInstanceDll.Current.Disconnect( "Connection timed out." );
 		return false;
+	}
+
+	/// <summary>
+	/// The client has been told to reconnect to the server. Pause while the server restarts, then attempt to reconnect.
+	/// </summary>
+	internal static async Task<bool> ClientReconnect( ReconnectMsg data )
+	{
+		IGameInstanceDll.Current?.CloseGame();
+
+		string address = LastConnectionString;
+		if ( string.IsNullOrWhiteSpace( address ) )
+		{
+			IGameInstanceDll.Current.Disconnect( "Reconnect failed, missing target address." );
+			return false;
+		}
+
+		Disconnect();
+
+		Log.Info( $"Reconnecting to {address}" );
+
+		LoadingScreen.IsVisible = true;
+		LoadingScreen.Media = null;
+		LoadingScreen.Title = "Server Restarting";
+		await Task.Delay( 4000 ); // pause to allow server to restart
+
+		return await TryConnect( address );
 	}
 }

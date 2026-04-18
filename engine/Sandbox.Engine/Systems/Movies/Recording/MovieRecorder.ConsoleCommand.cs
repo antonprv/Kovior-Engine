@@ -1,18 +1,18 @@
-﻿using System.IO;
-
-namespace Sandbox.MovieMaker;
+﻿namespace Sandbox.MovieMaker;
 
 #nullable enable
 
 partial class MovieRecorder
 {
 	private static MovieRecorder? _recorder;
+	private static MovieTime _lastSaveTime;
 
-	private static bool IsEjectEffect( GameObject go ) => go.Name.StartsWith( "eject_" );
-	private static bool IsImpactEffect( GameObject go ) => go.IsPrefabInstanceRoot && go.PrefabInstanceSource.StartsWith( "prefabs/surface/" );
-
+	/// <summary>
+	/// Start or stop movie recording.
+	/// </summary>
+	/// <param name="bufferDurationSeconds">Optional ring buffer duration.</param>
 	[ConCmd( "movie" )]
-	internal static bool StartRecording()
+	internal static bool ToggleRecording( float bufferDurationSeconds = 0f )
 	{
 		if ( _recorder is not null )
 		{
@@ -32,29 +32,66 @@ partial class MovieRecorder
 			return false;
 		}
 
-		var fileName = ScreenCaptureUtility.GenerateScreenshotFilename( "movie", filePath: "movies" );
+		var options = MovieRecorderOptions.Default;
 
-		_recorder = new MovieRecorder( scene, MovieRecorderOptions.Default );
+		if ( bufferDurationSeconds > 0f )
+		{
+			options = options with { BufferDuration = bufferDurationSeconds };
+		}
+
+		_recorder = new MovieRecorder( scene, options );
 		_recorder.Stopped += recorder =>
 		{
-			_recorder = null;
-			SaveRecording( recorder, fileName );
+			if ( _recorder != recorder ) return;
+
+			try
+			{
+				Save();
+			}
+			finally
+			{
+				_recorder = null;
+			}
 		};
 
 		_recorder.Start();
+		_lastSaveTime = MovieTime.Zero;
 
-		Log.Info( $"Movie recording started: {fileName}" );
+		var details = "";
+
+		if ( options.BufferDuration is { } bufferDuration )
+		{
+			details = $" (buffer duration: {bufferDuration})";
+		}
+
+		Log.Info( $"Movie recording started{details}.\nType \"movie\" to save and stop, or \"movie_save\" to save without stopping." );
 
 		return true;
 	}
 
-	private static void SaveRecording( MovieRecorder recorder, string fileName )
+	/// <summary>
+	/// Saves the current recording without stopping it.
+	/// </summary>
+	[ConCmd( "movie_save" )]
+	internal static void Save()
 	{
-		var clip = recorder.ToClip();
+		if ( _recorder is not { } recorder )
+		{
+			Log.Warning( "Recording hasn't started!" );
+			return;
+		}
+
+		var clip = recorder.Options.BufferDuration is null
+			? recorder.ToClip( (_lastSaveTime, recorder.Time) )
+			: recorder.ToClip();
+
+		var fileName = ScreenCaptureUtility.GenerateScreenshotFilename( "movie", filePath: "movies" );
 
 		FileSystem.Data.WriteJson( fileName, clip.ToResource() );
 
-		Log.Info( $"Saved {fileName} (Duration: {clip.Duration})" );
+		Log.Info( $"Saved {fileName} (Start: {recorder.Time - clip.Duration}, Duration: {clip.Duration})" );
+
+		_lastSaveTime = recorder.Time;
 	}
 
 	internal static void StopRecording()

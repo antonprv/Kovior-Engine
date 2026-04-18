@@ -36,7 +36,7 @@ public interface IMovieTrackRecorder
 	/// <summary>
 	/// Compiles captured values for this property and all sub-properties into tracks.
 	/// </summary>
-	IEnumerable<ICompiledTrack> Compile();
+	IEnumerable<ICompiledTrack> Compile( MovieTimeRange timeRange );
 }
 
 internal interface IMovieTrackRecorderInternal : IMovieTrackRecorder
@@ -63,7 +63,7 @@ file sealed class UnknownTrackRecorder : IMovieTrackRecorder
 
 	public void Capture() { }
 
-	public IEnumerable<ICompiledTrack> Compile() => [];
+	public IEnumerable<ICompiledTrack> Compile( MovieTimeRange timeRange ) => [];
 }
 
 file sealed class UnknownTrack : ITrack
@@ -140,14 +140,28 @@ internal abstract class MovieTrackRecorder<TTrack, TTarget> : IMovieTrackRecorde
 
 	protected abstract void OnCapture();
 
-	protected virtual ICompiledTrack? OnCompile() => Track;
+	protected virtual ICompiledTrack? OnCompile( MovieTimeRange timeRange ) => Track;
 
-	public IEnumerable<ICompiledTrack> Compile()
+	public IEnumerable<ICompiledTrack> Compile( MovieTimeRange timeRange )
 	{
-		var compiled = OnCompile();
-		var children = _children.SelectMany( x => x.Compile() );
+		var compiled = OnCompile( timeRange );
+		var children = _children
+			.SelectMany( x => x.Compile( timeRange ) )
+			.ToArray();
 
-		return compiled is null ? children : [compiled, .. children];
+		if ( compiled is null )
+		{
+			return children;
+		}
+
+		if ( ReferenceEquals( compiled, Track ) && children.Length == 0 )
+		{
+			// This track and its children have no data for this time range
+
+			return [];
+		}
+
+		return [compiled, .. children];
 	}
 
 	ICompiledTrack IMovieTrackRecorderInternal.Track => Track;
@@ -420,7 +434,7 @@ internal sealed class MoviePropertyTrackRecorder<T> : MovieTrackRecorder<Compile
 		: base( parent.MovieRecorder, parent, parent.Track.Property<T>( name ) )
 	{
 		_sampleInterval = MovieTime.FromFrames( 1, MovieRecorder.Options.SampleRate );
-		_writer = new PropertyBlockWriter<T>( MovieRecorder.Options.SampleRate );
+		_writer = new PropertyBlockWriter<T>( MovieRecorder.Options.SampleRate, MovieRecorder.Options.BufferDuration );
 	}
 
 	protected override void OnCapture()
@@ -437,7 +451,7 @@ internal sealed class MoviePropertyTrackRecorder<T> : MovieTrackRecorder<Compile
 			// First capture
 
 			_startTime = _elapsed = MovieRecorder.Time;
-			_writer.StartTime = _sampleTime = _elapsed.Floor( _sampleInterval );
+			_writer.NextTime = _sampleTime = _elapsed.Floor( _sampleInterval );
 
 			FindDefaultValue();
 		}
@@ -457,7 +471,7 @@ internal sealed class MoviePropertyTrackRecorder<T> : MovieTrackRecorder<Compile
 		if ( _sampleTime <= MovieRecorder.LastCaptureTime )
 		{
 			FinishBlock();
-			_writer.StartTime = _sampleTime = _elapsed.Floor( _sampleInterval );
+			_writer.NextTime = _sampleTime = _elapsed.Floor( _sampleInterval );
 		}
 
 		while ( _sampleTime <= _elapsed )
@@ -514,7 +528,7 @@ internal sealed class MoviePropertyTrackRecorder<T> : MovieTrackRecorder<Compile
 
 		if ( _writer.IsEmpty )
 		{
-			_writer.StartTime = _sampleTime;
+			_writer.NextTime = _sampleTime;
 		}
 
 		_writer.Write( nextValue );
@@ -541,22 +555,38 @@ internal sealed class MoviePropertyTrackRecorder<T> : MovieTrackRecorder<Compile
 
 		_blocks.Add( _writer.Compile( clampedTimeRange ) );
 
+		// If we're doing a rolling buffer, can discard blocks that fell outside that window
+
+		if ( MovieRecorder.Options.BufferDuration is { } bufferDuration )
+		{
+			while ( _blocks.Count > 0 && _blocks[0].TimeRange.End <= _sampleTime - bufferDuration )
+			{
+				_blocks.RemoveAt( 0 );
+			}
+		}
+
 		_writer.Clear();
 	}
 
-	private ImmutableArray<ICompiledPropertyBlock<T>> ToBlocks()
+	private ImmutableArray<ICompiledPropertyBlock<T>> ToBlocks( MovieTimeRange timeRange )
 	{
 		FinishBlock();
 
-		return [.. _blocks];
+		return
+		[
+			.. _blocks
+				.Where( x => x.TimeRange.Intersect( timeRange ) is { IsEmpty: false } )
+				.Select( x => x.Clamp( timeRange ).Shift( -timeRange.Start ) )
+		];
 	}
 
-	protected override ICompiledPropertyTrack? OnCompile()
+	protected override ICompiledPropertyTrack? OnCompile( MovieTimeRange timeRange )
 	{
 		if ( _isDefaultValue ) return null;
 		if ( _blocks.Count == 0 && _writer.IsEmpty ) return null;
+		if ( ToBlocks( timeRange ) is not { Length: > 0 } blocks ) return null;
 
-		return Track with { Blocks = ToBlocks() };
+		return Track with { Blocks = blocks };
 	}
 
 	private static IInterpolator<T>? Interpolator { get; } = MovieMaker.Interpolator.GetDefault<T>();

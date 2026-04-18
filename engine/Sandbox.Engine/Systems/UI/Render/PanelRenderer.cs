@@ -6,6 +6,8 @@ internal sealed partial class PanelRenderer
 {
 	public Rect Screen { get; internal set; }
 
+	readonly object _lock = new();
+
 	readonly UIBatcher batcher = new();
 	readonly List<GPUBoxInstance> pendingInstances = new();
 	int batchIndex;
@@ -17,51 +19,58 @@ internal sealed partial class PanelRenderer
 	int WorldPanelCombo => isWorldPanelContext ? 1 : 0;
 	internal RenderTarget DefaultRenderTarget;
 
-	internal void BuildDescriptors( RootPanel panel, float opacity = 1.0f )
-	{
-		Screen = panel.PanelBounds;
-		isWorldPanelContext = panel.IsWorldPanel;
-		Matrix = Matrix.Identity;
-
-		RenderModeStack.Clear();
-		RenderModeStack.Push( "normal" );
-		SetRenderMode( "normal" );
-
-		DefaultRenderTarget = Graphics.RenderTarget;
-		LayerStack?.Clear();
-		InitScissor( Screen );
-
-		BuildDescriptors( (Panel)panel, new RenderState { X = Screen.Left, Y = Screen.Top, Width = Screen.Width, Height = Screen.Height, RenderOpacity = opacity } );
-	}
-
 	internal void AdvanceFrame()
 	{
-		batcher.AdvanceFrame();
+		lock ( _lock )
+			batcher.AdvanceFrame();
+	}
+
+	internal void BuildDescriptors( RootPanel panel, float opacity = 1.0f )
+	{
+		lock ( _lock )
+		{
+			Screen = panel.PanelBounds;
+			isWorldPanelContext = panel.IsWorldPanel;
+			Matrix = Matrix.Identity;
+
+			RenderModeStack.Clear();
+			RenderModeStack.Push( "normal" );
+			SetRenderMode( "normal" );
+
+			DefaultRenderTarget = Graphics.RenderTarget;
+			LayerStack?.Clear();
+			InitScissor( Screen );
+
+			BuildDescriptors( (Panel)panel, new RenderState { X = Screen.Left, Y = Screen.Top, Width = Screen.Width, Height = Screen.Height, RenderOpacity = opacity } );
+		}
 	}
 
 	internal void BuildCommandList( RootPanel root, float opacity = 1.0f )
 	{
-		var cl = root.PanelCommandList;
-		cl.Reset();
+		lock ( _lock )
+		{
+			var cl = root.PanelCommandList;
+			cl.Reset();
 
-		Screen = root.PanelBounds;
-		DefaultRenderTarget = Graphics.RenderTarget;
-		isWorldPanelContext = root.IsWorldPanel;
+			Screen = root.PanelBounds;
+			DefaultRenderTarget = Graphics.RenderTarget;
+			isWorldPanelContext = root.IsWorldPanel;
 
-		LayerStack?.Clear();
-		pendingInstances.Clear();
-		backdropGrabActive = false;
-		batchIndex = 0;
+			LayerStack?.Clear();
+			pendingInstances.Clear();
+			backdropGrabActive = false;
+			batchIndex = 0;
 
-		cl.Attributes.Set( "LayerMat", Matrix.Identity );
-		cl.Attributes.SetCombo( "D_WORLDPANEL", WorldPanelCombo );
-		InitScissor( Screen, cl );
+			cl.Attributes.Set( "LayerMat", Matrix.Identity );
+			cl.Attributes.SetCombo( "D_WORLDPANEL", WorldPanelCombo );
+			InitScissor( Screen, cl );
 
-		DrawPanel( root, cl );
-		FlushBatch( cl );
+			DrawPanel( root, cl );
+			FlushBatch( cl );
 
-		Stats.ScissorCount = batcher.ScissorCount;
-		Stats.GpuBufferCount = batcher.GpuBufferCount;
+			Stats.ScissorCount = batcher.ScissorCount;
+			Stats.GpuBufferCount = batcher.GpuBufferCount;
+		}
 	}
 
 	internal bool IsWorldPanel( Panel panel )

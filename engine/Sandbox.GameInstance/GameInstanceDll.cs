@@ -2,6 +2,7 @@
 using Sandbox.Audio;
 using Sandbox.Diagnostics;
 using Sandbox.Internal;
+using Sandbox.Modals;
 using Sandbox.UI;
 using Sandbox.Utility;
 using Sandbox.VR;
@@ -54,15 +55,15 @@ internal partial class GameInstanceDll : Engine.IGameInstanceDll
 			if ( Application.IsStandalone )
 			{
 				// In standalone, we don't ship code - only assets
-				FileSystem.Mounted.CreateAndMount( EngineFileSystem.Addons, $"/base/assets" );
+				FileSystem.Mounted.CreateAndMount( EngineFileSystem.Addons, $"/base/Assets" );
 				FileSystem.Mounted.CreateAndMount( EngineFileSystem.Root, "/core/" );
 			}
 			else
 			{
-				FileSystem.Mounted.CreateAndMount( EngineFileSystem.Addons, "/base/assets/" );
+				FileSystem.Mounted.CreateAndMount( EngineFileSystem.Addons, "/base/Assets/" );
 				FileSystem.Mounted.CreateAndMount( EngineFileSystem.Addons, "/base/code/" );
 				FileSystem.Mounted.CreateAndMount( EngineFileSystem.Root, "/core/" );
-				FileSystem.Mounted.CreateAndMount( EngineFileSystem.Addons, "/citizen/assets/" );
+				FileSystem.Mounted.CreateAndMount( EngineFileSystem.Addons, "/citizen/Assets/" );
 			}
 		}
 
@@ -147,7 +148,7 @@ internal partial class GameInstanceDll : Engine.IGameInstanceDll
 			DidMountNetworkedFiles = false;
 		}
 
-		FontManager.Instance.Reset();
+		FontManager.Instance.Clear( false );
 		FontManager.Instance.LoadAll( FileSystem.Mounted );
 
 		AssemblyEnroller?.Dispose();
@@ -392,8 +393,6 @@ internal partial class GameInstanceDll : Engine.IGameInstanceDll
 
 		ResetEnvironment();
 
-		IMenuDll.Current?.OnGameExited();
-
 		Mounting.MountUtility.TickPreviewRenders();
 	}
 
@@ -515,11 +514,21 @@ internal partial class GameInstanceDll : Engine.IGameInstanceDll
 		BasePopup.CloseAll( panelClickedOn as Panel );
 	}
 
-	public void Disconnect()
+	public void Disconnect( string message = null )
 	{
 		// cancel any in-progress load right now instead of waiting for tick
 		CancelLoad();
 		Game.Close();
+
+		if ( !string.IsNullOrEmpty( message ) )
+		{
+			using var scope = GlobalContext.MenuScope();
+			IModalSystem.Current.Notice( "Disconnected", message, "wifi_off" );
+
+			Log.Warning( $"Disconnected: {message.Replace( "\n", "" )}" );
+		}
+
+		LoadingScreen.IsVisible = false;
 	}
 
 	private void CancelLoad()

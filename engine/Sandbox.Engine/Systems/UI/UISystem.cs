@@ -12,7 +12,7 @@ namespace Sandbox;
 /// </summary>
 internal class UISystem
 {
-	internal ThreadLocal<PanelRenderer> Renderer = new( () => new PanelRenderer() );
+	internal PanelRenderer Renderer = new();
 
 	internal PanelInput Input { get; set; } = new();
 
@@ -203,7 +203,7 @@ internal class UISystem
 
 	internal void BuildCommandLists()
 	{
-		Renderer.Value.AdvanceFrame();
+		Renderer.AdvanceFrame();
 
 		for ( int i = 0; i < RootPanels.Count; i++ )
 		{
@@ -448,7 +448,7 @@ internal class UISystem
 		// MouseButtonState, InputEventQueue, etc.
 		Input = new();
 		InputEventQueue = new();
-		Renderer = new( () => new PanelRenderer() );
+		Renderer = new();
 		CurrentFocus = null;
 		NextFocus = null;
 	}

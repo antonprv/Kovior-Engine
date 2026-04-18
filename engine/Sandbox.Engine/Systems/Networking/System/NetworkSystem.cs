@@ -206,7 +206,7 @@ internal partial class NetworkSystem
 			return;
 		}
 
-		Networking.StartReconnecting( data );
+		_ = Networking.ClientReconnect( data );
 	}
 
 	/// <summary>
