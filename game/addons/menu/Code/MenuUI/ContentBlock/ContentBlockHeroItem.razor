@@ -103,7 +103,6 @@
             var video = Package.Screenshots?.Where(x => x.IsVideo).FirstOrDefault()?.Url;
             if (video != null)
             {
-                video = video.Replace("medium.mp4", "high.mp4");
                 MediaUrl = video;
             }
         }
