@@ -105,13 +105,13 @@ public static class MenuHelpers
 			menu.AddOption( "person_add", "Send Friend Request", friend.OpenAddFriendOverlay );
 		}
 
-		Friend Me = new Friend( Game.SteamId );
-		string ConnectString = friend.GetRichPresence( "connect" );
-		bool IsInGame = !string.IsNullOrEmpty( ConnectString );
-		bool InSameGame = IsInGame && ConnectString == Me.GetRichPresence( "connect" );
-		bool CanJoinGame = !string.IsNullOrEmpty( ConnectString );
+		var me = new Friend( Game.SteamId );
+		var connectString = friend.GetRichPresence( "connect" );
+		var isInGame = !string.IsNullOrEmpty( connectString );
+		var inSameGame = isInGame && connectString == me.GetRichPresence( "connect" );
+		var canJoinGame = !string.IsNullOrEmpty( connectString );
 
-		if ( CanJoinGame && !InSameGame )
+		if ( canJoinGame && !inSameGame )
 		{
 			menu.AddOption( "sports_esports", "Join Game", () => MenuUtility.JoinFriendGame( friend ) );
 		}
@@ -197,8 +197,6 @@ public static class MenuHelpers
 		menu.AddSpacer();
 
 		menu.AddOption( "list", "View servers", () => ViewGameList( package ) );
-
-		//   menu.AddOption( "folder", "Launch With Map..", OnLaunchWithMap );
 
 		menu.AddSpacer();
 		menu.AddOption( "info", $"View Map Details", () => Game.Overlay.ShowPackageModal( package.FullIdent ) );
