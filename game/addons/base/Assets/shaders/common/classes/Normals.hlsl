@@ -34,8 +34,16 @@ class Normals
             return Normals::SampleFromDepth(screenPos);
 
         // Load normals from DepthNormals G-buffer
-        Texture2DMS<float4> tDepthNormals = Bindless::GetTexture2DMS(NormalsTextureIndex);
+        // Bindless Texture2DMS crashes on AMD RDNA 1/2 in compute shaders,
+        // so we use a Texture2D.Load on the MSAA resource instead which defaults to the first sample (0).
+        // If you really really want to do an MSAA resolve in compute, which we don't right now, just bind it.
+        #if PROGRAM == VFX_PROGRAM_CS
+        Texture2D<float4> tDepthNormals = Bindless::GetTexture2D( NormalsTextureIndex );
+        float3 normals = tDepthNormals.Load( int3(screenPos + g_vViewportOffset, 0) ).xyz;
+        #else
+        Texture2DMS<float4> tDepthNormals = Bindless::GetTexture2DMS( NormalsTextureIndex );
         float3 normals = tDepthNormals.Load( screenPos + g_vViewportOffset, msaaSampleIndex ).xyz;
+        #endif
 
         // Rebuild from depth if the normal is invalid
         if( all( normals == 0 ) )
